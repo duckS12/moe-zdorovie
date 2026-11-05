@@ -1,6 +1,14 @@
-const CACHE='health-push-v3-measures';
-self.addEventListener('install',event=>{self.skipWaiting();event.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/','/index.html','/manifest.webmanifest'])))});
-self.addEventListener('activate',event=>event.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))])));
-self.addEventListener('fetch',event=>{if(event.request.method!=='GET'||new URL(event.request.url).pathname.startsWith('/api/'))return;event.respondWith(fetch(event.request).catch(()=>caches.match(event.request)))});
-self.addEventListener('push',event=>event.waitUntil((async()=>{let title='Моё здоровье',body='Проверь план на сегодня';try{const sub=await self.registration.pushManager.getSubscription();if(sub){const r=await fetch('/api/due?endpoint='+encodeURIComponent(sub.endpoint),{cache:'no-store'});if(r.ok){const data=await r.json();if(data.name)body='Пора: '+data.name}}}catch(e){}await self.registration.showNotification(title,{body,icon:'/icon.svg',badge:'/icon.svg',tag:'myhealth-reminder',renotify:true,data:{url:'/'}})})()));
-self.addEventListener('notificationclick',event=>{event.notification.close();event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(async clients=>{for(const c of clients){if(c.url.startsWith(self.location.origin)){await c.focus();return}}await self.clients.openWindow('/')}))});
+// Scoped to the GitHub Pages project directory, not the github.io root.
+const CACHE = 'moe-zdorovie-pages-v1';
+const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('moe-zdorovie-pages-') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', event => {
+  const u = new URL(event.request.url);
+  if (event.request.method !== 'GET' || u.origin !== self.location.origin || !u.pathname.startsWith(new URL('./', self.registration.scope).pathname)) return;
+  event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+});
